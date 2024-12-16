@@ -1,6 +1,6 @@
 #![allow(unused_variables, unused_mut, dead_code)]
 
-use std::convert::TryFrom;
+use crate::utils::get2d;
 
 type Input = Vec<Vec<char>>;
 
@@ -15,33 +15,33 @@ fn parse(input: &str) -> Input {
 }
 
 // Safely access the array of inputs
-fn get(input: &Input, i: i32, j: i32) -> &char {
-    if let Ok(i) = usize::try_from(i) {
-        if let Some(v2) = input.get(i) {
-            if let Ok(j) = usize::try_from(j) {
-                v2.get(j).unwrap_or(&'.')
-            } else {
-                &'.'
-            }
-        } else {
-            &'.'
-        }
-    } else {
-        &'.'
-    }
-}
+// fn get(input: &Input, i: i32, j: i32) -> &char {
+//     if let Ok(i) = usize::try_from(i) {
+//         if let Some(v2) = input.get(i) {
+//             if let Ok(j) = usize::try_from(j) {
+//                 v2.get(j).unwrap_or(&'.')
+//             } else {
+//                 &'.'
+//             }
+//         } else {
+//             &'.'
+//         }
+//     } else {
+//         &'.'
+//     }
+// }
 
 fn letters(input: &Input, i: i32, j: i32, length: i32) -> Vec<String> {
     vec![
-        (0..length).map(|a| get(input, i, j + a)).collect(),
-        (0..length).map(|a| get(input, i + a, j)).collect(),
-        (0..length).map(|a| get(input, i, j - a)).collect(),
-        (0..length).map(|a| get(input, i - a, j)).collect(),
+        (0..length).map(|a| get2d(input, i, j + a)).collect(),
+        (0..length).map(|a| get2d(input, i + a, j)).collect(),
+        (0..length).map(|a| get2d(input, i, j - a)).collect(),
+        (0..length).map(|a| get2d(input, i - a, j)).collect(),
 
-        (0..length).map(|a| get(input, i + a, j + a)).collect(),
-        (0..length).map(|a| get(input, i - a, j + a)).collect(),
-        (0..length).map(|a| get(input, i - a, j - a)).collect(),
-        (0..length).map(|a| get(input, i + a, j - a)).collect(),
+        (0..length).map(|a| get2d(input, i + a, j + a)).collect(),
+        (0..length).map(|a| get2d(input, i - a, j + a)).collect(),
+        (0..length).map(|a| get2d(input, i - a, j - a)).collect(),
+        (0..length).map(|a| get2d(input, i + a, j - a)).collect(),
     ]
 }
 
@@ -60,15 +60,15 @@ fn part1(input: &Input) -> u32 {
 
 fn letters_2(input: &Input, i: i32, j: i32, length: i32) -> Vec<String> {
     let v1: Vec<&char> =
-        vec![get(input, i - 1, j - 1),
-             get(input, i, j),
-             get(input, i + 1, j + 1),
+        vec![get2d(input, i - 1, j - 1),
+             get2d(input, i, j),
+             get2d(input, i + 1, j + 1),
         ];
 
     let v2 =
-        vec![get(input, i - 1, j + 1),
-             get(input, i, j),
-             get(input, i + 1, j - 1)
+        vec![get2d(input, i - 1, j + 1),
+             get2d(input, i, j),
+             get2d(input, i + 1, j - 1)
         ];
 
     
@@ -118,22 +118,7 @@ mod tests {
         assert_eq!(input[4][5], 'S');
     }
 
-    #[test]
-    fn test_get() {
-        let input = parse("SMXXSM
-                           SSAMXM
-                           SAXMAA
-                           XMASMS
-                           XXSAMS");
-
-        assert_eq!(get(&input, 0, 0), &'S');
-        assert_eq!(get(&input, -1, 0), &'.');
-        assert_eq!(get(&input, 19, 0), &'.');
-        assert_eq!(get(&input, 0, 1), &'M');
-        assert_eq!(get(&input, 0, 2), &'X');
-        assert_eq!(get(&input, 0, -1), &'.');
-        assert_eq!(get(&input, 0, 20), &'.');
-    }
+    
 
     #[test]
     fn test_letters() {
@@ -144,7 +129,15 @@ mod tests {
                            XXSAMS");
 
         let out = letters(&input, 0, 0, 5);
-        assert_eq!(out, vec!["SMXXS", "SSSXX", "S....", "S....", "SSXSM", "S....", "S....", "S...."]);
+        assert_eq!(out, vec![
+            "SMXXS",
+            "SSSXX",
+            "S    ",
+            "S    ",
+            "SSXSM",
+            "S    ",
+            "S    ",
+            "S    "]);
     }
 
     #[test]
