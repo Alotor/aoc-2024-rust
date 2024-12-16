@@ -17,6 +17,22 @@ pub fn get2d(input: &Vec<Vec<char>>, i: i32, j: i32) -> &char {
     }
 }
 
+pub fn get_m<'a>(input: &'a Vec<Vec<u32>>, i: i32, j: i32, default: &'a u32) -> &'a u32 {
+    if let Ok(i) = usize::try_from(i) {
+        if let Some(v2) = input.get(i) {
+            if let Ok(j) = usize::try_from(j) {
+                v2.get(j).unwrap_or(default)
+            } else {
+                default
+            }
+        } else {
+            default
+        }
+    } else {
+        default
+    }
+}
+
 #[test]
 fn test_get() {
     let input =
