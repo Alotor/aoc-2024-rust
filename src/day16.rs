@@ -1,7 +1,6 @@
 #![allow(unused_variables, unused_mut, dead_code, unused_comparisons, unused_imports)]
 
-use std::{thread, time};
-use std::collections::{HashSet, HashMap, BinaryHeap};
+use std::collections::{HashSet, HashMap};
 use colored::Colorize;
 
 type Input = Vec<Vec<char>>;
@@ -23,7 +22,7 @@ fn parse(input: &str) -> Input {
 
 fn start_position(input: &Input) -> (usize, usize) {
     for i in 0 .. input.len() {
-        for j in 0 .. input.len() {
+        for j in 0 .. input[i].len() {
             if input[i][j] == 'S' {
                 return (i, j);
             }
@@ -34,7 +33,7 @@ fn start_position(input: &Input) -> (usize, usize) {
 
 fn end_position(input: &Input) -> (usize, usize) {
     for i in 0 .. input.len() {
-        for j in 0 .. input.len() {
+        for j in 0 .. input[i].len() {
             if input[i][j] == 'E' {
                 return (i, j);
             }
@@ -43,78 +42,67 @@ fn end_position(input: &Input) -> (usize, usize) {
     panic!("Map without end is not valid");
 }
 
-fn h(end: (usize, usize)) -> impl Fn((usize, usize, Dir)) -> u32 {
-    move |(i, j, _)| {
-        let i = i as f32;
-        let j = j as f32;
-        let a = end.0 as f32;
-        let b = end.1 as f32;
-
-        let res = ((i - a) * (i - a) + (j - b) * (j - b)).sqrt();
-
-        res as u32    
-    }
-}
-
-fn min(open: &HashSet::<(usize, usize, Dir)>, fscore: &HashMap::<(usize, usize, Dir), u32>) -> (usize, usize, Dir) {
-    *open
-        .iter()
-        .min_by(|p1, p2| {
-            let s1 = fscore.get(p1).unwrap_or(&u32::MAX);
-            let s2 = fscore.get(p2).unwrap_or(&u32::MAX);
-            s1.cmp(s2)
-        })
-        .unwrap()
+fn neighbours_prev(_input: &Input, (i, j, dir): (usize, usize, Dir)) -> Vec<((usize, usize, Dir), u32)> {
+    let mut result = Vec::new();
+    match dir {
+        N => {
+            result.push(((i+1, j, N), 1));
+            result.push(((i, j, E), 1000));
+            result.push(((i, j, W), 1000));
+        }
+        S => {
+            result.push(((i-1, j, S), 1));
+            result.push(((i, j, E), 1000));
+            result.push(((i, j, W), 1000));
+        }
+        E => {
+            result.push(((i, j-1, E), 1));
+            result.push(((i, j, N), 1000));
+            result.push(((i, j, S), 1000));
+        }
+        W => {
+            result.push(((i, j+1, W), 1));
+            result.push(((i, j, N), 1000));
+            result.push(((i, j, S), 1000));
+        }
+    };
+    result
 }
 
 fn neighbours(input: &Input, (i, j, dir): (usize, usize, Dir)) -> Vec<((usize, usize, Dir), u32)> {
+    let mut result = Vec::new();
     match dir {
         N => {
-            let mut result = vec![
-                ((i, j, E), 1000),
-                ((i, j, W), 1000),
-            ];
-
             if i > 0 && input[i-1][j] != '#' {
                 result.push(((i - 1, j, N), 1))
             }
-            result
+            result.push(((i, j, E), 1000));
+            result.push(((i, j, W), 1000));
         }
 
         S => {
-            let mut result = vec![
-                ((i, j, W), 1000),
-                ((i, j, E), 1000),
-            ];
-
             if i < input.len() - 1 && input[i+1][j] != '#' {
                 result.push(((i + 1, j, S), 1))
             }
-            result
+            result.push(((i, j, W), 1000));
+            result.push(((i, j, E), 1000));
         }
         E => {
-            let mut result = vec![
-                ((i, j, S), 1000),
-                ((i, j, N), 1000),
-            ];
-
             if j < input[i].len() - 1 && input[i][j+1] != '#' {
                 result.push(((i, j+1, E), 1))
             }
-            result
+            result.push(((i, j, S), 1000));
+            result.push(((i, j, N), 1000));
         }
         W => {
-            let mut result = vec![
-                ((i, j, S), 1000),
-                ((i, j, N), 1000),
-            ];
-
             if j > 0 && input[i][j-1] != '#' {
                 result.push(((i, j-1, W), 1))
             }
-            result
+            result.push(((i, j, S), 1000));
+            result.push(((i, j, N), 1000));
         }
-    }
+    };
+    result
 }
 
 fn build_path(from_node: &HashMap::<(usize, usize, Dir), (usize, usize, Dir)>, last: &(usize, usize, Dir)) -> Vec<(usize, usize, Dir)> {
@@ -127,50 +115,26 @@ fn build_path(from_node: &HashMap::<(usize, usize, Dir), (usize, usize, Dir)>, l
     }
 
     result.reverse();
-        
     result
 }
 
+fn search_path(input: &Input, start: (usize, usize), end: (usize, usize)) -> Vec<(usize, usize, Dir)> {
+    let mut all_points = HashSet::<(usize, usize)>::new();
+    search_path_aux(input, start, end, &mut all_points)
+}
+
 // Implements A* algorithm for the problem
-fn search_path(input: &Input, start: (usize, usize), end: (usize, usize)) -> Vec<Vec<(usize, usize, Dir)>> {
-    let h = h(end);
+fn search_path_aux(input: &Input, start: (usize, usize), end: (usize, usize), all_nodes: &mut HashSet<(usize, usize)>) -> Vec<(usize, usize, Dir)> {
     let start = (start.0, start.1, E);
 
-    // TODO: Improve performance with binary heap. But how to update the values with its fscore?
     let mut open = HashSet::<(usize, usize, Dir)>::from([start]);
     let mut from_node = HashMap::<(usize, usize, Dir), (usize, usize, Dir)>::new();
 
     let mut gscore = HashMap::<(usize, usize, Dir), u32>::new();
     gscore.insert(start, 0);
 
-    let mut fscore = HashMap::<(usize, usize, Dir), u32>::new();
-    fscore.insert(start, h(start));
-
-    let mut min_path_score = u32::MAX;
-    let mut all_paths = Vec::<Vec<(usize, usize, Dir)>>::new();
-
     while !open.is_empty() {
-        let current = min(&open, &fscore);
-
-        if current.0 == end.0 && current.1 == end.1 {
-            let path = build_path(&from_node, &current);
-            let score = score_path(&path);
-
-            // println!("{score:?} - {path:?}");
-            // all_paths.push(path);
-
-            
-            if score > min_path_score {
-                // println!(">Exit");
-                // This path is wors so we return
-                return all_paths;
-            } else {
-                // Another path is added to the list
-                min_path_score = score;
-                all_paths.push(path);
-            }
-        }
-
+        let current = *open.iter().next().unwrap();
         open.remove(&current);
 
         let current_score = *gscore.get(&current).unwrap();
@@ -182,15 +146,64 @@ fn search_path(input: &Input, start: (usize, usize), end: (usize, usize)) -> Vec
             if tentative_score < *gscore.get(&neighbour).unwrap_or(&u32::MAX) {
                 from_node.insert(neighbour, current);
                 gscore.insert(neighbour, tentative_score);
-                fscore.insert(neighbour, tentative_score + h(neighbour));
                 if !open.contains(&neighbour) {
                     open.insert(neighbour);
                 }
             }
         }
     }
-    // panic!("No path found")
-    all_paths
+
+    all_nodes.insert(end);
+    all_nodes.insert((start.0, start.1));
+
+    let end_nodes: Vec<_> = [N, S, W, E]
+        .iter()
+        .map(|d| (end.0, end.1, *d))
+        .collect();
+    
+    let min_end_score = end_nodes
+        .iter()
+        .map(|n| gscore.get(&n).unwrap_or(&10000000))
+        .min().unwrap();
+
+
+    let min_end: Vec<(usize,usize,Dir)> = end_nodes
+        .iter()
+        .filter(|n| gscore.get(&n).unwrap_or(&10000000) == min_end_score)
+        .map(|n| (n.0, n.1, n.2))
+        .collect();
+
+    let mut pending = Vec::from(min_end);
+
+    while let Some(current) = pending.pop() {
+        let nns = neighbours_prev(input, current);
+        
+        let min = nns
+            .iter()
+            .map(|(n, s)| gscore.get(n).unwrap_or(&10000000) + s)
+            .min().unwrap();
+
+        let path_nodes: Vec<_> = nns
+            .iter()
+            .filter(|(n,s)| gscore.get(n).unwrap_or(&10000000) + s == min)
+            .collect();
+        
+        path_nodes.iter().for_each(|(n, _)| {
+            if *n != start {
+                all_nodes.insert((n.0, n.1));
+                pending.push(*n);
+            } 
+        });
+    }
+
+    let end_node = end_nodes.iter().min_by(|a,b| {
+        let s1 = gscore.get(a).unwrap_or(&10000000);
+        let s2 = gscore.get(b).unwrap_or(&10000000);
+        s1.cmp(s2)
+    }).unwrap();
+    
+    let path = build_path(&from_node, &end_node);
+    path
 }
 
 fn print_path(input: &Vec<Vec<char>>, path: &Vec<(usize, usize, Dir)>) {
@@ -219,25 +232,14 @@ fn print_path(input: &Vec<Vec<char>>, path: &Vec<(usize, usize, Dir)>) {
     }
 }
 
-fn print_all_path(input: &Vec<Vec<char>>, paths: &Vec<Vec<(usize, usize, Dir)>>) {
-    let mut output = input.clone();
-
-    let mut positions = HashSet::<(usize, usize)>::new();
-
-    paths
-        .iter()
-        .flat_map(|p| p)
-        .for_each(|(i, j, _)| {
-            positions.insert((*i, *j));
-        });
-        
-    for i in 0 .. output.len() {
-        for j in 0 .. output[i].len() {
-            if output[i][j] == '#' {
+fn print_nodes(input: &Vec<Vec<char>>, nodes: &HashSet<(usize, usize)>) {
+    for i in 0 .. input.len() {
+        for j in 0 .. input[i].len() {
+            if input[i][j] == '#' {
                 print!("{}", "#".blue());
-            } else if positions.contains(&(i, j)){
+            } else if nodes.contains(&(i, j)){
                 print!("{}", "O".red());
-            } else if output[i][j] == '.' {
+            } else if input[i][j] == '.' {
                 print!(" ");
             }
         }
@@ -264,22 +266,23 @@ fn score_path(path: &Vec<(usize, usize, Dir)>) -> u32 {
 fn part1(input: &Input) -> u32 {
     let start = start_position(&input);
     let end = end_position(&input);
-    let path = &search_path(&input, start, end)[0];
+    let path = search_path(&input, start, end);
 
-    // print_path(&input, &path);
+    print_path(&input, &path);
 
     score_path(&path)
 }
 
-// #[aoc(day16, part2)]
+#[aoc(day16, part2)]
 fn part2(input: &Input) -> u32 {
     let start = start_position(&input);
     let end = end_position(&input);
-    let paths = search_path(&input, start, end);
 
-    print_all_path(&input, &paths);
+    let mut visited = HashSet::<(usize, usize)>::new();
+    search_path_aux(&input, start, end, &mut visited);
 
-    0
+    print_nodes(&input, &visited);
+    visited.len() as u32
 }
 
 
@@ -320,9 +323,9 @@ mod tests {
     fn test_neighbours() {
         let input = default_input();
         assert_eq!(neighbours(&input, (13, 1, E)),
-                   vec![((13, 1, S), 1000),
-                        ((13, 1, N), 1000),
-                        ((13, 2, E), 1)]);
+                   vec![((13, 2, E), 1),
+                        ((13, 1, S), 1000),
+                        ((13, 1, N), 1000)]);
 
         assert_eq!(neighbours(&input, (13, 1, W)),
                    vec![((13, 1, S), 1000),
@@ -333,49 +336,15 @@ mod tests {
                         ((1, 1, W), 1000)]);
 
         assert_eq!(neighbours(&input, (1, 1, S)),
-                   vec![((1, 1, W), 1000),
-                        ((1, 1, E), 1000),
-                        ((2, 1, S), 1)]);
-        
-    }
-
-    #[test]
-    fn test_h(){
-        let input = default_input();
-        let end = end_position(&input);
-        let h = h(end);
-
-        // max distance from start
-        assert_eq!(h((13, 1, N)), 16);
-        assert_eq!(h((5, 1, N)), 12);
-        assert_eq!(h((1, 1, N)), 12);
-        assert_eq!(h((1, 5, N)), 8);
-
-        // min distance at target
-        assert_eq!(h((1, 13, N)), 0);
-    }
-    
-    #[test]
-    fn test_min(){
-        let input = default_input();
-        let mut open = HashSet::<(usize, usize, Dir)>::new();
-        open.insert((0, 0, N));
-        open.insert((1, 1, S));
-        open.insert((3, 3, E));
-        open.insert((4, 4, W));
-        
-        let mut fscore = HashMap::<(usize, usize, Dir), u32>::new();
-        fscore.insert((0,0,N), 10);
-        fscore.insert((1,1,S), 0);
-        fscore.insert((3,3,E), 10);
-
-        assert_eq!(min(&open, &fscore), (1,1,S));
+                   vec![((2, 1, S), 1),                        
+                        ((1, 1, W), 1000),
+                        ((1, 1, E), 1000)]);
     }
 
     #[test]
     fn test_search(){
         let input = default_input();
-        let path = &search_path(&input, (13,1), (1,13))[0];
+        let path = search_path(&input, (13,1), (1,13));
         print_path(&input, &path);
         assert_eq!(path.len(), 44);
     }
@@ -404,7 +373,7 @@ mod tests {
 
         let start = start_position(&input);
         let end = end_position(&input);
-        let path = &search_path(&input, start, end)[0];
+        let path = search_path(&input, start, end);
         print_path(&input, &path);
         assert_eq!(path.len(), 60);
     }
@@ -440,14 +409,14 @@ mod tests {
         assert_eq!(part1(&input), 11048);
     }
 
-    // #[test]
+    #[test]
     fn test_part2(){
         let input = default_input();
         assert_eq!(part2(&input), 45);
     }
 
-    // #[test]
-    fn test_part2_2(){
+    #[test]
+    fn test_part2_3(){
         let input = parse(
             "#################
              #...#...#...#..E#
