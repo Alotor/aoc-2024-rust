@@ -1,4 +1,3 @@
-#![allow(unused_variables, unused_mut, dead_code, unused_comparisons, unused_imports)]
 
 type Input = (u64, u64, u64, Vec<u32>);
 
@@ -19,10 +18,6 @@ const BXC: u32 = 4;
 const OUT: u32 = 5;
 const BDV: u32 = 6;
 const CDV: u32 = 7;
-
-const COMBO_A: u32 = 4;
-const COMBO_B: u32 = 5;
-const COMBO_C: u32 = 6;
 
 impl Machine {
     fn new(reg_a: u64, reg_b: u64, reg_c: u64) -> Self {
@@ -84,7 +79,7 @@ impl Machine {
         }
     }
 
-    fn bxc(&mut self, operand: u32) {
+    fn bxc(&mut self, _operand: u32) {
         let a = self.reg_b;
         let b = self.reg_c;
         let result = a ^ b;
@@ -139,7 +134,7 @@ impl Machine {
         }
     }
     
-    fn run(&mut self, program: Vec<u32>) {
+    fn run(&mut self, program: &Vec<u32>) {
         self.ins_p = 0;
         self.halt = false;
         self.output = vec![];
@@ -155,7 +150,6 @@ impl Machine {
         }
     }
 }
-
 
 #[aoc_generator(day17)]
 fn parse(input: &str) -> Input {
@@ -179,26 +173,108 @@ fn parse(input: &str) -> Input {
 
 #[aoc(day17, part1)]
 fn part1(input: &Input) -> String {
-
     let input: Input = input.clone();
     let (reg_a, reg_b, reg_c, program) = input;
-    
     let mut m = Machine::new(reg_a, reg_b, reg_c);
-    m.run(program);
+    m.run(&program);
 
     let out: Vec<_> = m.output.iter().map(|n| n.to_string()).collect();
     out.join(",")
 }
 
+// Native implementation of the algoritm for test purposes
+/*
+fn alg_native(a: u64) -> Vec<u64> {
+    let mut out: Vec<u64> = Vec::new();
+    let mut a = a;
+
+    while a != 0 {
+        let mut b = a % 8;
+        b = b ^ 5;
+        let c = a / 2u64.pow(b as u32);
+        b = b ^ 6;
+        b = b ^ c;
+        out.push(b % 8);
+        a = a / 8;
+    }
+    out
+}
+*/
+
+fn digits_to_num(digits: &Vec<u64>) -> u64{
+    let mut acc = 0;
+    let mut b = 8u64.pow(digits.len() as u32);
+    for i in digits {
+        acc += b * i;
+        b = b / 8;
+    }
+    acc
+}
+
+// I think this mostly works because of the program we're searching for
+// the output of the program change every number on base 8 numbers. So every
+// time you added a "base 8" digit it created a new output.
+// 1*8^3 + 4*8^2 + 0*8^1 + 3
+// Using this concept this algorithm makes a search for the changes in the
+// digits so they match the program input.
+fn search_number(program: Vec<u32>) -> u64 {
+    let mut pending = Vec::<Vec<u64>>::new();
+    let mut results = Vec::<u64>::new();
+
+    pending.push(Vec::<u64>::new());
+
+    while let Some(current) = pending.pop() {
+        let value = digits_to_num(&current);
+
+        let idx = program.len() - 1 - current.len();
+        let target_digit = program[idx];
+
+        for next in 0 ..= 7 {
+            // let out = alg_native(value + next);
+            let mut m = Machine::new(value+next, 0, 0);
+            m.run(&program);
+            let out = m.output;
+
+            if out.len() > program.len() {
+                continue;
+            }
+
+            if out.len() > 0 && out[0] == target_digit {
+                if out.len() == program.len() {
+                    // println!("DONE!! {out:?} {program:?} {}", value + next);
+                    results.push(value + next);
+                    continue;
+                }
+                
+                let mut current = current.clone();
+                current.push(next);
+                                
+                pending.push(current);
+            }
+        }
+    }
+
+    *results.iter().min().unwrap()
+}
+
+
 #[aoc(day17, part2)]
 fn part2(input: &Input) -> u64 {
 
     let input: Input = input.clone();
+    let (_, _, _, program) = input;
+
+    search_number(program)
+}
+
+/*
+fn search_solutions(input: &Input) -> u64 {
+    let input: Input = input.clone();
     let (reg_a, reg_b, reg_c, program) = input;
 
-    let mut reg_a = 35184372088832;
+    let mut reg_a = 110484429973914;
     loop {
-        if reg_a % 100000000 == 0 {
+        if reg_a % 1000000000 == 0 {
             println!("{reg_a}");
         }
 
@@ -239,11 +315,16 @@ fn part2(input: &Input) -> u64 {
 
     reg_a
 }
+*/
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const COMBO_A: u32 = 4;
+    const COMBO_B: u32 = 5;
+    const COMBO_C: u32 = 6;
 
     #[test]
     fn part1_example() {
@@ -278,12 +359,12 @@ mod tests {
     fn test_adv() {
         let mut m = Machine::new(24, 4, 0);
 
-        m.run(vec![ADV, 3]);
+        m.run(&vec![ADV, 3]);
         assert_eq!(m.reg_a, 3);
         assert_eq!(m.ins_p, 2);
 
         m.reg_a = 24;
-        m.run(vec![ADV, COMBO_B]);
+        m.run(&vec![ADV, COMBO_B]);
         assert_eq!(m.reg_a, 1);
         assert_eq!(m.ins_p, 2);
     }
@@ -292,12 +373,12 @@ mod tests {
     fn test_bxl() {
         let mut m = Machine::new(0, 10, 0);
 
-        m.run(vec![BXL, 5]);
+        m.run(&vec![BXL, 5]);
         assert_eq!(m.reg_b, 15);
         assert_eq!(m.ins_p, 2);
 
         m.reg_b = 7;
-        m.run(vec![BXL, 1]);
+        m.run(&vec![BXL, 1]);
         assert_eq!(m.reg_b, 6);
         assert_eq!(m.ins_p, 2);
     }
@@ -306,11 +387,11 @@ mod tests {
     fn test_bst() {
         let mut m = Machine::new(12, 0, 0);
 
-        m.run(vec![BST, 3]);
+        m.run(&vec![BST, 3]);
         assert_eq!(m.reg_b, 3);
         assert_eq!(m.ins_p, 2);
 
-        m.run(vec![BST, COMBO_A]);
+        m.run(&vec![BST, COMBO_A]);
         assert_eq!(m.reg_b, 4);
         assert_eq!(m.ins_p, 2);
     }
@@ -319,11 +400,11 @@ mod tests {
     fn test_jnz() {
         let mut m = Machine::new(12, 0, 0);
 
-        m.run(vec![JNZ, 4]);
+        m.run(&vec![JNZ, 4]);
         assert_eq!(m.ins_p, 4);
         
         m.reg_a = 0;
-        m.run(vec![JNZ, 4]);
+        m.run(&vec![JNZ, 4]);
         assert_eq!(m.ins_p, 2);
     }
 
@@ -331,12 +412,12 @@ mod tests {
     fn test_bxc() {
         let mut m = Machine::new(0, 10, 5);
 
-        m.run(vec![BXC, 4]);
+        m.run(&vec![BXC, 4]);
         assert_eq!(m.reg_b, 15);
 
         m.reg_b = 7;
         m.reg_c = 1;
-        m.run(vec![BXC, 4]);
+        m.run(&vec![BXC, 4]);
         assert_eq!(m.reg_b, 6);
     }
 
@@ -344,10 +425,10 @@ mod tests {
     fn test_out() {
         let mut m = Machine::new(12, 7, 5);
 
-        m.run(vec![OUT, COMBO_A]);
+        m.run(&vec![OUT, COMBO_A]);
         assert_eq!(m.output, vec![4]);
 
-        m.run(vec![OUT, COMBO_B, OUT, COMBO_C]);
+        m.run(&vec![OUT, COMBO_B, OUT, COMBO_C]);
         assert_eq!(m.output, vec![7, 5]);
     }
 
@@ -355,12 +436,12 @@ mod tests {
     fn test_cdv() {
         let mut m = Machine::new(24, 0, 4);
 
-        m.run(vec![BDV, 3]);
+        m.run(&vec![BDV, 3]);
         assert_eq!(m.reg_b, 3);
         assert_eq!(m.ins_p, 2);
 
         m.reg_a = 24;
-        m.run(vec![BDV, COMBO_C]);
+        m.run(&vec![BDV, COMBO_C]);
         assert_eq!(m.reg_b, 1);
         assert_eq!(m.ins_p, 2);
     }
@@ -369,12 +450,12 @@ mod tests {
     fn test_bdv() {
         let mut m = Machine::new(24, 4, 0);
 
-        m.run(vec![CDV, 3]);
+        m.run(&vec![CDV, 3]);
         assert_eq!(m.reg_c, 3);
         assert_eq!(m.ins_p, 2);
 
         m.reg_a = 24;
-        m.run(vec![CDV, COMBO_B]);
+        m.run(&vec![CDV, COMBO_B]);
         assert_eq!(m.reg_c, 1);
         assert_eq!(m.ins_p, 2);
     }
@@ -383,30 +464,30 @@ mod tests {
     fn test_examples() {
         // If register C contains 9, the program 2,6 would set register B to 1.
         let mut m = Machine::new(0, 0, 9);
-        m.run(vec![2, 6]);
+        m.run(&vec![2, 6]);
         assert_eq!(m.reg_b, 1);
         
         // If register A contains 10, the program 5,0,5,1,5,4 would output 0,1,2.
         let mut m = Machine::new(10, 0, 0);
-        m.run(vec![5, 0, 5, 1, 5, 4]);
+        m.run(&vec![5, 0, 5, 1, 5, 4]);
         assert_eq!(m.output, vec![0, 1, 2]);
         
         // If register A contains 2024, the program 0,1,5,4,3,0
         //   would output 4,2,5,6,7,7,7,7,3,1,0 and leave 0 in register A.
         let mut m = Machine::new(2024, 0, 0);
-        m.run(vec![0, 1, 5, 4, 3, 0]);
+        m.run(&vec![0, 1, 5, 4, 3, 0]);
         assert_eq!(m.output, vec![4, 2, 5, 6, 7, 7, 7, 7, 3, 1, 0]);
         assert_eq!(m.reg_a, 0);
         
         // If register B contains 29, the program 1,7 would set register B to 26.
         let mut m = Machine::new(0, 29, 0);
-        m.run(vec![1, 7]);
+        m.run(&vec![1, 7]);
         assert_eq!(m.reg_b, 26);
         
         // If register B contains 2024 and register C contains 43690, the program 4,0
         //  would set register B to 44354.
         let mut m = Machine::new(0, 2024, 43690);
-        m.run(vec![4, 0]);
+        m.run(&vec![4, 0]);
         assert_eq!(m.reg_b, 44354);
     }
 

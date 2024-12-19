@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::convert::TryFrom;
 
 // Safely access the array of inputs
@@ -33,6 +34,15 @@ pub fn get_m<'a>(input: &'a Vec<Vec<u32>>, i: i32, j: i32, default: &'a u32) -> 
     }
 }
 
+pub fn to_bin(x: u64, d: u32) -> String {
+    String::from_iter(
+        (0..d)
+            .rev()
+            .map (|n| (x >> n) & 1)
+            .map (|n| n.to_string()))
+}
+
+
 #[test]
 fn test_get() {
     let input =
@@ -51,4 +61,9 @@ fn test_get() {
     assert_eq!(get2d(&input, 0, 2), &'X');
     assert_eq!(get2d(&input, 0, -1), &' ');
     assert_eq!(get2d(&input, 0, 20), &' ');
+}
+
+#[test]
+fn test_to_bin() {
+    assert_eq!(to_bin(15, 5), "01111");
 }
