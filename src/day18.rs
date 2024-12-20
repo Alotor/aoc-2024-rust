@@ -154,13 +154,39 @@ fn search_path(map: &Vec<Vec<char>>, start: (usize, usize), end: (usize, usize))
 fn part1(input: &Input) -> usize {
     let map = gen_map(71, 71, &input, 1024);
     let path = search_path(&map, (0, 0), (70, 70)).unwrap();
-    print_path(&map, &path);
+    // print_path(&map, &path);
     path.len() - 1
+}
+
+fn block_path(width: usize, height: usize, start: (usize, usize), end: (usize, usize), input: &Input) -> (usize, usize) {
+
+    fn block_path_rec(width: usize, height: usize, start: (usize, usize), end: (usize, usize), input: &Input,
+                      from_i: usize, to_i: usize) -> usize
+    {
+        if from_i == to_i || from_i > to_i || from_i + 1 == to_i {
+            from_i
+        } else {
+            let cur = from_i + (to_i - from_i) / 2;
+            let map = gen_map(width, height, &input, cur);
+            match search_path(&map, start, end) {
+                None => {
+                    block_path_rec(width, height, start, end, input, from_i, cur)
+                },
+                Some(_) => {
+                    block_path_rec(width, height, start, end, input, cur, to_i)
+                },
+            }
+        }
+    }
+
+    let i = block_path_rec(width, height, start, end, input, 0, input.len());
+    input[i]
 }
 
 #[aoc(day18, part2)]
 fn part2(input: &Input) -> String {
-    todo!()
+    let r = block_path(71, 71, (0,0), (70,70), &input);
+    format!("{},{}", r.0, r.1)
 }
 
 
@@ -210,4 +236,14 @@ mod tests {
         assert_eq!(path.len() - 1, 22);
     }
 
+    #[test]
+    fn test_block_path() {
+        let input = parse(
+            "5,4\n4,2\n4,5\n3,0\n2,1\n6,3\n2,4\n1,5\n0,6\n3,3\n2,6\n5,1
+             1,2\n5,5\n2,5\n6,5\n1,4\n0,4\n6,4\n1,1\n6,1\n1,0\n0,5\n1,6\n2,0"
+        );
+
+        let block = block_path(7, 7, (0,0), (6, 6), &input);
+        assert_eq!(block, (6, 1));
+    }
 }
