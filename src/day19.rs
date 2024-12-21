@@ -83,6 +83,55 @@ fn search_patterns_cache(patterns: &HashSet<String>, line: &String, max_pat_leng
     search_patterns_rec(patterns, line, max_pat_length, cache, 0)
 }
 
+fn count_patterns(patterns: &HashSet<String>, line: &String, max_pat_length: usize) -> u64 {
+    let mut cache = HashMap::<String, u64>::new();
+    count_patterns_cache(patterns, line, max_pat_length, &mut cache)
+}
+
+fn count_patterns_cache(patterns: &HashSet<String>, line: &String, max_pat_length: usize, cache: &mut HashMap::<String, u64>) -> u64 {
+    fn count_patterns_rec(patterns: &HashSet<String>, line: &String, max_pat_length: usize, cache: &mut HashMap::<String, u64>, start: usize) -> u64 {
+        let line_str = line[start..].to_string();
+        if cache.contains_key(&line_str) {
+            return *cache.get(&line_str).unwrap();
+        }
+
+        if start == line.len(){
+            return 1;
+        }
+        
+        let mut subpt = Vec::<usize>::new();
+
+        for i in 0 .. max_pat_length {
+            // let i = max_pat_length - i - 1;
+            
+            if has_pattern(patterns, &line, start, start+i) {
+                subpt.push(start+i);
+            }
+        }
+
+        let result = subpt
+            .iter()
+            .map(|end| {
+                if end+1 == line.len() {
+                    // println!("FOUND!");
+                    1
+                } else {
+                    // println!("TRY {}-{}", &line[start..end+1], &line[end+1..]);
+                    count_patterns_rec(patterns, line, max_pat_length, cache, end+1)
+                }
+            })
+            .sum();
+
+        cache.insert(line[start..].to_string(), result);
+        
+        result
+    }
+
+    // println!("Search {line}");
+    
+    count_patterns_rec(patterns, line, max_pat_length, cache, 0)
+}
+
 #[aoc(day19, part1)]
 fn part1((patterns, lines): &Input) -> usize {
 
@@ -105,8 +154,22 @@ fn part1((patterns, lines): &Input) -> usize {
 }
 
 #[aoc(day19, part2)]
-fn part2(input: &Input) -> String {
-    todo!()
+fn part2((patterns, lines): &Input) -> u64 {
+
+    let patterns = HashSet::<String>::from_iter(
+        patterns.iter().map(|s| s.to_string())
+    );
+
+    let max_pat_len = patterns.iter().map(|s| s.len()).max().unwrap();
+    let mut cache = HashMap::<String, u64>::new();
+
+    let mut result: u64 = 0;
+    for i in 0 .. lines.len() {
+        let line = &lines[i];
+        result += count_patterns_cache(&patterns, &line, max_pat_len, &mut cache) as u64;
+    }
+
+    result
 }
 
 
@@ -161,7 +224,6 @@ mod tests {
         let patterns = HashSet::from_iter(
             ["r", "wr", "b", "g", "bwu", "rb", "gb", "br"].iter().map(|s| s.to_string())
         );
-        
         assert!(search_patterns(&patterns, &String::from("brwrr"), 3));
         assert!(search_patterns(&patterns, &String::from("bggr"), 3));
         assert!(!search_patterns(&patterns, &String::from("ubwu"), 3));
@@ -183,5 +245,37 @@ mod tests {
              bbrgwb"
         );
         assert_eq!(part1(&input), 6);
+    }
+
+    #[test]
+    fn test_count_patterns() {
+        let patterns = HashSet::from_iter(
+            ["r", "wr", "b", "g", "bwu", "rb", "gb", "br"].iter().map(|s| s.to_string())
+        );
+        assert_eq!(count_patterns(&patterns, &String::from("brwrr"), 3), 2);
+        assert_eq!(count_patterns(&patterns, &String::from("bggr"), 3), 1);
+        assert_eq!(count_patterns(&patterns, &String::from("gbbr"), 3), 4);
+        assert_eq!(count_patterns(&patterns, &String::from("rrbgbr"), 3), 6);
+        assert_eq!(count_patterns(&patterns, &String::from("bwurrg"), 3), 1);
+        assert_eq!(count_patterns(&patterns, &String::from("brgr"), 3), 2);
+        assert_eq!(count_patterns(&patterns, &String::from("ubwu"), 3), 0);
+        assert_eq!(count_patterns(&patterns, &String::from("bbrgwb"), 3), 0);
+    }
+
+    #[test]
+    fn test_part2() {
+        let input = parse(
+            "r, wr, b, g, bwu, rb, gb, br
+
+             brwrr
+             bggr
+             gbbr
+             rrbgbr
+             ubwu
+             bwurrg
+             brgr
+             bbrgwb"
+        );
+        assert_eq!(part2(&input), 16);
     }
 }
