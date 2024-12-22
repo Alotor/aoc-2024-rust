@@ -48,7 +48,7 @@ fn prices(secret: u64, size: u32) -> Vec<i64> {
     let mut result = Vec::new();
     let mut cur = secret;
     result.push(cur  as i64 % 10);
-    for _ in 0 .. size - 1 {
+    for _ in 0 .. size {
         cur = p3(p2(p1(cur)));
         result.push(cur  as i64 % 10);
     }
@@ -89,17 +89,33 @@ fn part1(input: &Input) -> u64 {
         .sum()
 }
 
-#[aoc(day22, part2)]
-fn part2(input: &Input) -> i64 {
+// #[aoc(day22, part2)]
+fn experiments(input: &Input) -> i64 {
 
     let mut commands = Vec::<HashMap<Vec<i64>, i64>>::new();
 
     println!("Generating...");
     for i in input {
-        commands.push(price_commands(prices(*i, 2000)));
+        let comms = price_commands(prices(*i, 2000));
+        commands.push(comms);
     }
-    println!("Generating DONE");
 
+    let command = vec![3, 1, 4, 1];
+    let mut acc = 0;
+    for i in 0 .. commands.len() {
+        let entry = &commands[i];
+        let cc = *entry.get(&command).unwrap_or(&0);
+        acc += cc;
+        if cc != 0 {
+            println!("{i}: {cc}");
+        }
+        
+    }
+
+    println!(">> {acc}");
+    
+
+    /*
     let mut max_val = 0;
     let mut max_seq = &Vec::<i64>::new();
 
@@ -121,6 +137,46 @@ fn part2(input: &Input) -> i64 {
                 max_seq = command;
             }
         }
+    }
+
+    println!("{max_seq:?} => {max_val}");
+    max_val
+     */
+    0
+}
+
+#[aoc(day22, part2)]
+fn part2(input: &Input) -> i64 {
+
+    let mut commands = Vec::<HashMap<Vec<i64>, i64>>::new();
+
+    println!("Generating...");
+    for i in input {
+        commands.push(price_commands(prices(*i, 2000)));
+    }
+    println!("Generating DONE");
+
+    let mut max_val = 0;
+    let mut max_seq = &Vec::<i64>::new();
+
+    for i in 0 .. commands.len() {
+        let entry = &commands[i];
+        for (command, _) in entry.into_iter() {
+            let mut acc = 0;
+            for j in 0 .. commands.len() {
+                let other = &commands[j];
+
+                let current = *other.get(command).unwrap_or(&0);
+                acc += current;
+            }
+
+            if acc > max_val {
+                max_val = acc;
+                max_seq = command;
+            }
+        }
+        println!("Check {} / {}. Max {}, {:?}",
+                 i+1, commands.len(), max_val, max_seq);
     }
 
     println!("{max_seq:?} => {max_val}");
@@ -184,7 +240,7 @@ mod tests {
         assert_eq!(
             prices(123, 10),
             vec![
-                3, 0, 6, 5, 4, 4, 6, 4, 4, 2
+                3, 0, 6, 5, 4, 4, 6, 4, 4, 2, 4
             ]
         );
     }
@@ -194,7 +250,7 @@ mod tests {
         assert_eq!(
             price_deltas(&prices(123, 10)),
             vec![
-                0, -3, 6, -1, -1, 0, 2, -2, 0, -2
+                0, -3, 6, -1, -1, 0, 2, -2, 0, -2, 2
             ]
         );
     }
@@ -234,6 +290,29 @@ mod tests {
         );
 
         assert_eq!(part2(&input), 23);
-        
+    }
+
+    #[test]
+    fn test_sample_1() {
+        let input = parse(
+            "2021\n5017\n19751"
+        );
+
+        let tmp = vec![1,2,3,4,5,6,7,8];
+        tmp[1..].windows(4).for_each(|w|{
+            println!("{w:?}");
+        });
+
+
+        assert_eq!(part2(&input), 27);
+    }
+
+    #[test]
+    fn test_sample_2() {
+        let input = parse(
+            "5053\n10083\n11263"
+        );
+
+        assert_eq!(part2(&input), 27);
     }
 }
