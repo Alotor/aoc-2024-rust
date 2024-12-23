@@ -35,8 +35,6 @@ fn parse(input: &str) -> Graph {
 
 fn find_cycles_start_nodes(graph: &Graph, max_level: usize, start: Vec<String>) -> Set<Vec<String>> {
     fn find_cycles_rec(graph: &Graph, prev: &String, node: &String, level: usize, visited: Set<String>) -> Vec<Set<String>> {
-        // println!("{level} Current: {node} Visited: {visited:?}");
-
         let mut result = Vec::<Set<String>>::new();
 
         if level > 0 {
@@ -94,9 +92,75 @@ fn part1(input: &Graph) -> u32 {
     result.len() as u32
 }
 
+fn is_connected(graph: &Graph, s1: &String, s2: &String) -> bool {
+    if let Some(next) = graph.get(s1) {
+        next.contains(s2)
+    } else {
+        false
+    }
+}
+
+fn stv(set: &Set<String>) -> Vec<String> {
+    let mut k: Vec<String> = set.iter().map(|e| e.clone()).collect();
+    k.sort();
+    k
+}
+
+fn vts(v: &Vec<String>) -> Set<String> {
+    Set::from_iter(v.iter().map(|s| s.clone()))
+}
+
+fn find_connected_nodes(graph: &Graph) -> Vec<String> {
+    fn find_connected_nodes(
+        graph: &Graph,
+        cset: Set<String>,
+        node: &String,
+        connected: &mut Set::<Vec<String>>,
+        disconnected: &mut Set::<Vec<String>>)
+    {
+        let e = Set::new();
+        let children =  graph.get(node).unwrap_or(&e);
+
+        for next in children {
+            if !cset.contains(next) {
+                let mut nset = cset.clone();
+                nset.insert(next.clone());
+                let nsetv = stv(&nset);
+
+                if connected.contains(&nsetv) || disconnected.contains(&nsetv) {
+                    continue;
+                }
+                
+                if cset.iter().all(|c| is_connected(graph, c, next)) {
+                    connected.insert(nsetv);
+                    find_connected_nodes(graph, nset, next, connected, disconnected);
+                } else {
+                    disconnected.insert(nsetv);
+                }
+            }
+        }
+    }
+
+    let mut connected = Set::<Vec<String>>::new();
+    let mut disconnected = Set::<Vec<String>>::new();
+
+    for node in graph.keys() {
+        let cset = Set::<String>::from_iter([node.clone()]);
+        find_connected_nodes(graph, cset, node, &mut connected, &mut disconnected);
+    }
+
+    let mut max = connected.iter().max_by(|a, b| {
+        a.len().cmp(&b.len())
+    }).unwrap().clone();
+
+    max.sort();
+    max
+}
+
 #[aoc(day23, part2)]
-fn part2(input: &Graph) -> u32 {
-    todo!()
+fn part2(input: &Graph) -> String {
+    let result = find_connected_nodes(&input);
+    result.join(",")
 }
 
 
@@ -145,6 +209,12 @@ mod tests {
     fn test_parse() {
         let input = sample_graph();
 
+        assert!(is_connected(&input, &String::from("kh"), &String::from("tc")));
+        assert!(is_connected(&input, &String::from("tc"), &String::from("kh")));
+        assert!(!is_connected(&input, &String::from("kh"), &String::from("td")));
+        assert!(!is_connected(&input, &String::from("kh"), &String::from("ee")));
+        assert!(!is_connected(&input, &String::from("ee"), &String::from("tc")));
+
         assert_eq!(
             input.get(&String::from("kh")).unwrap(),
             &HashSet::from([
@@ -186,5 +256,51 @@ mod tests {
         let result = part1(&input);
         assert_eq!(result, 7);
     }
-    
+
+    #[test]
+    fn test_connected() {
+        let input = sample_graph();
+        let result = find_connected_nodes(&input);
+
+        assert_eq!(result, vec![
+            String::from("co"),
+            String::from("de"),
+            String::from("ka"),
+            String::from("ta")
+        ]);
+    }
+
+     #[test]
+    fn test_connected_2() {
+        let input = parse("g-a
+        a-b
+        b-f
+        b-e
+        b-c
+        b-d
+        c-e
+        c-d
+        c-f
+        d-e
+        d-f
+        e-f");
+
+        let result = find_connected_nodes(&input);
+
+        assert_eq!(result, vec![
+            String::from("b"),
+            String::from("c"),
+            String::from("d"),
+            String::from("e"),
+            String::from("f"),
+        ]);
+    }
+
+     #[test]
+    fn test_part2() {
+        let input = sample_graph();
+        let result = part2(&input);
+
+        assert_eq!(result, String::from("co,de,ka,ta"));
+    }
 }
